@@ -1,0 +1,66 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only token; this workflow never writes to the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      # Installed users run whatever this repo ships, so it may only ship skills,
+      # the manifest and the one PostSnag server. Anything else needs a reviewed
+      # change to this list first.
+      - name: Plugin contents are only what we publish
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const fail = (msg) => { console.error(`::error::${msg}`); process.exitCode = 1; };
+
+          const TOP = new Set(['.git', '.github', '.claude-plugin', '.mcp.json', 'README.md', 'LICENSE', 'SECURITY.md', 'assets', 'skills', '.gitignore']);
+          for (const e of fs.readdirSync('.')) if (!TOP.has(e)) fail(`unexpected top-level entry: ${e}`);
+
+          const EXT = /\.(md|json|png)$/;
+          (function walk(dir) {
+            for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+              const p = path.join(dir, e.name);
+              if (p === '.git' || p === '.github') continue;
+              if (e.isSymbolicLink()) fail(`symlink not allowed: ${p}`);
+              else if (e.isDirectory()) walk(p);
+              else if (!EXT.test(e.name) && !['LICENSE', '.gitignore'].includes(p)) fail(`file type not allowed: ${p}`);
+              else if (fs.statSync(p).mode & 0o111) fail(`executable bit set: ${p}`);
+            }
+          })('.');
+
+          const mcp = JSON.parse(fs.readFileSync('.mcp.json', 'utf8'));
+          const expected = { mcpServers: { postsnag: { type: 'http', url: 'https://api.postsnag.com/mcp' } } };
+          if (JSON.stringify(mcp) !== JSON.stringify(expected)) fail('.mcp.json must name only the production PostSnag server: ' + JSON.stringify(expected));
+
+          const manifest = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json', 'utf8'));
+          const KEYS = new Set(['name', 'displayName', 'version', 'description', 'author', 'homepage', 'repository', 'license', 'privacyPolicyUrl', 'keywords']);
+          for (const k of Object.keys(manifest)) if (!KEYS.has(k)) fail(`plugin.json key not allowed: ${k}`);
+          if (manifest.name !== 'postsnag') fail('plugin.json name must stay "postsnag"');
+          for (const k of ['homepage', 'repository', 'privacyPolicyUrl']) if (!/^https:\/\//.test(manifest[k] || '')) fail(`plugin.json ${k} must be an https URL`);
+          EOF
+
+      - name: Claude plugin directory checks
+        run: npx --yes @anthropic-ai/claude-code@2.1.312 plugin validate --profile directory .
