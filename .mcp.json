@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "postsnag": {
+      "type": "http",
+      "url": "https://api.postsnag.com/mcp"
+    }
+  }
+}

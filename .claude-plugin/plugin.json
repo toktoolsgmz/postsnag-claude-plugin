@@ -1,0 +1,26 @@
+{
+  "name": "postsnag",
+  "displayName": "PostSnag",
+  "version": "1.0.0",
+  "description": "Analyse the Facebook profiles, groups and posts you captured with PostSnag: hooks, best time to post, profile audits, group norms, competitor gaps, evergreen reposts, captions in a creator's voice and a 7-day content calendar.",
+  "author": {
+    "name": "PostSnag",
+    "url": "https://postsnag.com"
+  },
+  "homepage": "https://postsnag.com",
+  "repository": "https://github.com/toktoolsgmz/postsnag-claude-plugin",
+  "license": "MIT",
+  "privacyPolicyUrl": "https://postsnag.com/privacy",
+  "keywords": [
+    "postsnag",
+    "facebook",
+    "social-media",
+    "content-strategy",
+    "hooks",
+    "engagement",
+    "facebook-groups",
+    "competitor-analysis",
+    "content-calendar",
+    "captions"
+  ]
+}
